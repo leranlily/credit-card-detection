@@ -3,7 +3,6 @@
 
 import cv2
 import numpy as np
-import math
 import os
 
 MAX_WIDTH = 500
@@ -15,7 +14,7 @@ ratio = width/height
 folder = "images"
 path = os.listdir(folder)
 
-target_path="results1/"      
+target_path="results/"      
 if not os.path.exists(target_path):  
     os.makedirs(target_path)
 
