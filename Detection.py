@@ -18,24 +18,17 @@ path = os.listdir(folder)
 target_path="results1/"      
 if not os.path.exists(target_path):  
     os.makedirs(target_path)
-k=0
+
 for image in path:
-#if k==0:
-    #print(image)
     img = cv2.imread(folder+"/"+image)
     h, w, channels = img.shape
     if w > MAX_WIDTH:
         resize_rate = MAX_WIDTH / w	
         img = cv2.resize(img, (MAX_WIDTH, int(h*resize_rate)), interpolation=cv2.INTER_AREA)
     h, w, channels = img.shape
-    print(w,h)
-    b,g,r = cv2.split(img) 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    #clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-    #img_cl = clahe.apply(gray)
     gray = cv2.GaussianBlur(gray, (3,3), 0)   # gaussian filtering
     ret, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)  #binary
-
 
 #when the background is brighter than foreground, use binary inverse
 #so that the value of background is 0 and foregroud if 255
@@ -76,6 +69,8 @@ for image in path:
             up = y
             break
     
+# do the same on each row
+# determine right and left edge of the credit card.
     wsum = np.sum(binary[up:down,:],axis=0) #sum of each column
     
     for x in range (0,w):
@@ -92,9 +87,9 @@ for image in path:
             right = x
             break
    
+# as the ratio of width and height is 1.6 for credit card
+# when the ratio is far away from 1.6, increase width or height to improve the results
     r = (right-left)/(down-up)
-    print(up,down,left,right) 
-    print (r)
     if r<1.2:
         neww = int((down-up)*ratio)
         addw = neww - (right-left)
@@ -130,8 +125,7 @@ for image in path:
                     down = newh
             else:
                 down = h-1
-                up = h - addh
-    print(up,down,left,right)   
+                up = h - addh  
 
 #use grabCut and get the foreground image
     mask = np.zeros(img.shape[:2],np.uint8)
@@ -141,11 +135,9 @@ for image in path:
     cv2.grabCut(img,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
     mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
 
-#when the rectangle is 
+#the rectangle maybe too small to cover the credit card
     size = np.sum((mask==1)|(mask==3))
-    
-    print(size,(right-left)*(down-up))
-    if size*2>(right-left)*(down-up):
+    if size*2>(right-left)*(down-up):  #increase width or height of rectangle again
         edge = w//8
         right = min(w-1,right+edge)
         left = max(0,left-edge)
@@ -153,28 +145,16 @@ for image in path:
         down = min(h-1,down+edge)
         print(up,down,left,right) 
         rect = (up,left,right-left,down-up)
-        cv2.grabCut(img,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
+        cv2.grabCut(img,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)  #Redo grabcut
         mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
 
-    size = np.sum((mask==1)|(mask==3))
-    wprd = math.sqrt(size*ratio)
-    hprd = size//wprd
+    dst = gray[up:down, left:right]
+    
+#remove the noises
     mask3 = mask2*255
     img_edge1 = cv2.Canny(mask3, 100, 200)
     image, contours, hierarchy = cv2.findContours(mask3,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
     cv2.drawContours(mask3, contours, -1, (0, 0, 255), 1)
-    length = len(contours)
-    for i in range(length):
-        cnt = contours[i]
-        epsilon = 0.02 * cv2.arcLength(cnt,True)
-        approx = cv2.approxPolyDP(cnt, epsilon, True)
-
-        #if len(approx)>=3:#cv2.contourArea(cnt)>size/2:
-            #cv2.polylines(img,[approx], True, (0, 0, 255), 1)
-           # print(approx)
-    #print(up,down,left,right)
-    dst = gray[up:down, left:right]
-
     mask4 = np.where((mask3==0),0,1).astype('uint8')
     img_dst1 = img*mask4[:,:,np.newaxis]
 
@@ -182,16 +162,16 @@ for image in path:
     img_edge2 = cv2.Canny(img_dst1, 100, 200)
     image, contours, hierarchy = cv2.findContours(img_edge2,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 
+# Overlay the contour on the raw image
     cv2.drawContours(img, contours, -1, (0, 0, 255), 1)
  
-    k = k+1
-    cv2.imwrite(target_path+"img_edge1_"+str(k)+".jpg", img_edge1)
-    cv2.imwrite(target_path+"mask3_"+str(k)+".jpg", mask3)
-    cv2.imwrite(target_path+"binary_"+str(k)+".jpg", binary)
-    cv2.imwrite(target_path+"projection_"+str(k)+".jpg", dst) 
-    cv2.imwrite(target_path+"grubcut_"+str(k)+".jpg",img_dst1)
-    cv2.imwrite(target_path+"creditcard_"+str(k)+".jpg", img_edge2)
-    cv2.imwrite(target_path+"result_"+str(k)+".jpg", img)
+    cv2.imshow("img_edge1", img_edge1)
+    cv2.imshow("mask3", mask3)
+    cv2.imshow("binary", binary)
+    cv2.imshow("projection", dst) 
+    cv2.imshow("grubcut",img_dst1)
+    cv2.imshow("creditcard", img_edge2)
+    cv2.imshow("result", img)
     
     cv2.waitKey(0)  
     cv2.destroyAllWindows()
