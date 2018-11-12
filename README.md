@@ -1,5 +1,7 @@
 # credit-card-detection
 
+mainly use projection and grabcut
+
 1. Open terminal.
 2. Come to the directory containing the "Detection.py".
 3. Type： python Detection.py.
