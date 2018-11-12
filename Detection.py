@@ -141,8 +141,7 @@ for image in path:
         right = min(w-1,right+edge)
         left = max(0,left-edge)
         up = max(0,up-edge)
-        down = min(h-1,down+edge)
-        print(up,down,left,right) 
+        down = min(h-1,down+edge) 
         rect = (up,left,right-left,down-up)
         cv2.grabCut(img,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)  #Redo grabcut
         mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
